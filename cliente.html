@@ -272,27 +272,72 @@
 </div>
 
 <!-- ============================================================
-     MODAL — Senha de acesso (clientes)
+     MODAL — Acesso (login / cadastro / aguardando / rejeitado)
      ============================================================ -->
-<div id="modal-senha" class="modal-overlay" style="display:flex">
-  <div class="modal-box" style="max-width:360px">
-    <div class="modal-header">
-      <div>
-        <h3>🔒 Área restrita</h3>
-        <div style="font-size:12px;color:var(--fg3);margin-top:2px">Informe a senha de acesso</div>
-      </div>
+<div id="modal-acesso" class="modal-overlay" style="display:flex">
+  <div class="modal-box" style="max-width:400px">
+    <div class="modal-header" style="flex-direction:column;align-items:flex-start;gap:4px">
+      <h3>🔐 Área do Cliente</h3>
+      <div id="acesso-subtitulo" style="font-size:13px;color:var(--fg3)"></div>
     </div>
-    <div class="modal-body">
-      <div id="senha-erro" style="display:none;color:var(--accent);font-size:13px;margin-bottom:10px">Senha incorreta. Tente novamente.</div>
+
+    <!-- Tabs -->
+    <div id="acesso-tabs" style="display:flex;gap:0;border-bottom:1px solid var(--border);margin:0 0 16px">
+      <button id="acesso-tab-login"    class="tab-btn active" style="flex:1;border-radius:0" onclick="mostrarAbaAcesso('login')">Entrar</button>
+      <button id="acesso-tab-cadastro" class="tab-btn"        style="flex:1;border-radius:0" onclick="mostrarAbaAcesso('cadastro')">Solicitar acesso</button>
+    </div>
+
+    <div id="acesso-erro" style="display:none;color:var(--accent);font-size:13px;margin-bottom:12px;padding:8px 12px;background:color-mix(in srgb,var(--accent) 10%,transparent);border-radius:var(--radius-sm)"></div>
+
+    <!-- Form login -->
+    <div id="acesso-form-login" class="modal-body" style="padding-top:0">
+      <div class="form-group">
+        <label>E-mail</label>
+        <input type="email" id="login-email" placeholder="seu@email.com"
+               onkeydown="if(event.key==='Enter') fazerLogin()">
+      </div>
       <div class="form-group">
         <label>Senha</label>
-        <input type="password" id="input-senha-cliente" placeholder="••••••••"
-               onkeydown="if(event.key==='Enter') verificarSenha()">
+        <input type="password" id="login-senha" placeholder="••••••••"
+               onkeydown="if(event.key==='Enter') fazerLogin()">
       </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:4px" onclick="fazerLogin()">Entrar</button>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="verificarSenha()">Entrar</button>
+
+    <!-- Form cadastro / solicitação -->
+    <div id="acesso-form-cadastro" class="modal-body" style="display:none;padding-top:0">
+      <p style="font-size:12px;color:var(--fg3);margin-bottom:14px">Crie sua conta para solicitar acesso ao painel. Você receberá a aprovação em breve.</p>
+      <div class="form-group">
+        <label>Nome</label>
+        <input type="text" id="cad-nome" placeholder="Seu nome completo">
+      </div>
+      <div class="form-group">
+        <label>E-mail</label>
+        <input type="email" id="cad-email" placeholder="seu@email.com">
+      </div>
+      <div class="form-group">
+        <label>Crie uma senha</label>
+        <input type="password" id="cad-senha" placeholder="Mínimo 6 caracteres">
+      </div>
+      <button id="btn-solicitar" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:4px" onclick="solicitarAcesso()">Solicitar acesso</button>
     </div>
+
+    <!-- Aguardando aprovação -->
+    <div id="acesso-aguardando" style="display:none;padding:16px 20px 20px;text-align:center">
+      <div style="font-size:32px;margin-bottom:12px">⏳</div>
+      <h4 style="margin-bottom:8px">Solicitação enviada!</h4>
+      <p style="font-size:13px;color:var(--fg3)">Sua solicitação de acesso foi recebida. Aguarde a aprovação da Buzina Digital.</p>
+      <button class="btn btn-secondary btn-sm" style="margin-top:16px" onclick="sairCliente()">Usar outra conta</button>
+    </div>
+
+    <!-- Rejeitado -->
+    <div id="acesso-rejeitado" style="display:none;padding:16px 20px 20px;text-align:center">
+      <div style="font-size:32px;margin-bottom:12px">❌</div>
+      <h4 style="margin-bottom:8px">Acesso não autorizado</h4>
+      <p style="font-size:13px;color:var(--fg3)">Seu acesso a este painel foi negado. Entre em contato com a Buzina Digital.</p>
+      <button class="btn btn-secondary btn-sm" style="margin-top:16px" onclick="sairCliente()">Usar outra conta</button>
+    </div>
+
   </div>
 </div>
 

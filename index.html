@@ -33,6 +33,10 @@
       <button class="nav-item" onclick="abrirNovoCliente()">
         <span class="icon">＋</span> Novo cliente
       </button>
+      <button class="nav-item" onclick="abrirSolicitacoes()" id="nav-solicitacoes">
+        <span class="icon">🔔</span> Solicitações
+        <span id="badge-pendentes" style="display:none;background:var(--accent);color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:auto"></span>
+      </button>
       <button class="nav-item" onclick="abrirFeedbacks()">
         <span class="icon">💬</span> Feedbacks
       </button>
@@ -140,10 +144,7 @@
         Acesso do cliente
       </p>
 
-      <div class="form-group">
-        <label>Senha de acesso <span style="font-weight:400;color:var(--fg3)">(opcional — se deixar em branco, qualquer um com o link acessa)</span></label>
-        <input type="text" id="nc-senha" placeholder="ex: buzina2024">
-      </div>
+      <p style="font-size:12px;color:var(--fg3);margin-top:4px">Os clientes criam sua própria conta e você aprova o acesso pelo painel.</p>
 
     </div>
     <div class="modal-footer">
@@ -168,6 +169,21 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-excluir')">Cancelar</button>
       <button class="btn btn-danger" onclick="excluirCliente()">Remover</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL — Solicitações de acesso
+     ============================================================ -->
+<div id="modal-solicitacoes" class="modal-overlay" style="display:none">
+  <div class="modal-box" style="max-width:640px">
+    <div class="modal-header">
+      <h3>🔔 Solicitações de acesso</h3>
+      <button class="modal-close" onclick="closeModal('modal-solicitacoes')">×</button>
+    </div>
+    <div class="modal-body" id="solicitacoes-lista">
+      <div class="loading-spinner"><div class="spinner"></div></div>
     </div>
   </div>
 </div>
