@@ -259,10 +259,39 @@
         <label>Conquista</label>
         <input type="text" id="conquista-texto" placeholder="Ex: Primeiro reel viral ✨">
       </div>
+      <div class="form-group">
+        <label>Data da conquista</label>
+        <input type="date" id="conquista-data">
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-conquista')">Cancelar</button>
       <button class="btn btn-primary" onclick="salvarConquista()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL — Senha de acesso (clientes)
+     ============================================================ -->
+<div id="modal-senha" class="modal-overlay" style="display:flex">
+  <div class="modal-box" style="max-width:360px">
+    <div class="modal-header">
+      <div>
+        <h3>🔒 Área restrita</h3>
+        <div style="font-size:12px;color:var(--fg3);margin-top:2px">Informe a senha de acesso</div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div id="senha-erro" style="display:none;color:var(--accent);font-size:13px;margin-bottom:10px">Senha incorreta. Tente novamente.</div>
+      <div class="form-group">
+        <label>Senha</label>
+        <input type="password" id="input-senha-cliente" placeholder="••••••••"
+               onkeydown="if(event.key==='Enter') verificarSenha()">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="verificarSenha()">Entrar</button>
     </div>
   </div>
 </div>
