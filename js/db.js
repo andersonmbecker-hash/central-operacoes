@@ -247,6 +247,57 @@ async function dbDeleteEvento(id) {
   if (error) throw error;
 }
 
+// ── Acessos ───────────────────────────────────────────────────
+async function dbSolicitarAcesso(payload) {
+  // payload: { cliente_id, user_id, nome, email }
+  const { data, error } = await db
+    .from('acessos')
+    .insert(payload)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+async function dbGetMeuAcesso(clienteId) {
+  const user = await dbGetUser();
+  if (!user) return null;
+  const { data, error } = await db
+    .from('acessos')
+    .select('*')
+    .eq('cliente_id', clienteId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+async function dbListAcessosPendentes() {
+  const { data, error } = await db
+    .from('acessos')
+    .select('*, clientes(nome, slug)')
+    .eq('status', 'pendente')
+    .order('criado_em', { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
+async function dbAprovarAcesso(id, responsavelId) {
+  const { error } = await db
+    .from('acessos')
+    .update({ status: 'aprovado', responsavel_id: responsavelId || null })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+async function dbRejeitarAcesso(id) {
+  const { error } = await db
+    .from('acessos')
+    .update({ status: 'rejeitado' })
+    .eq('id', id);
+  if (error) throw error;
+}
+
 // ── Feedback ──────────────────────────────────────────────────
 async function dbEnviarFeedback(payload) {
   const { error } = await db

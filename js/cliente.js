@@ -18,68 +18,173 @@ let _focusRoteiro = null;
 
 // ── Init ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  // Pega slug da URL: /lpbasics  ou  ?slug=lpbasics
-  const path = window.location.pathname.replace(/^\//, '');
-  const params = new URLSearchParams(window.location.search);
-  PAGE_SLUG = path || params.get('slug') || '';
+  // Pega slug da URL: /lpbasics
+  const path = window.location.pathname.replace(/^\//, '').replace(/\.html$/, '');
+  PAGE_SLUG = path || '';
 
-  if (!PAGE_SLUG) {
+  if (!PAGE_SLUG || PAGE_SLUG === 'cliente') {
     showError('URL inválida. Nenhum slug encontrado.');
     return;
   }
 
-  // Verifica se é admin
+  // Verifica sessão
   const user = await dbGetUser();
-  IS_ADMIN = !!user;
+  IS_ADMIN = user?.email === ADMIN_EMAIL;
 
   // Tema e feedback
   updateThemeBtn();
   injectFeedbackButton(PAGE_SLUG);
 
-  // Ajusta sidebar
+  // Ajusta sidebar para não-admin
   if (!IS_ADMIN) {
     document.getElementById('sidebar-admin-section')?.remove();
-    document.getElementById('btn-logout')?.remove();
     document.getElementById('sidebar-voltar')?.remove();
   }
 
-  // Portão de senha (apenas para clientes não-admin)
-  if (!IS_ADMIN) {
-    const authed = localStorage.getItem(`bz-auth-${PAGE_SLUG}`);
-    if (!authed) {
-      // Mostra modal de senha — aguarda verificação
-      document.getElementById('modal-senha').style.display = 'flex';
-      return; // interrompe; verificarSenha() chama initPage() depois
-    }
-  } else {
-    document.getElementById('modal-senha').style.display = 'none';
+  if (IS_ADMIN) {
+    // Admin: acesso direto
+    document.getElementById('modal-acesso').style.display = 'none';
+    await initPage();
+    return;
   }
 
+  // Carrega cliente para pegar o id
+  let clienteTemp;
+  try {
+    clienteTemp = await dbGetCliente(PAGE_SLUG);
+  } catch (e) {
+    showError('Cliente não encontrado.');
+    return;
+  }
+
+  if (!user) {
+    // Não logado: mostra tela de login/cadastro
+    mostrarTelaAcesso(clienteTemp.nome);
+    return;
+  }
+
+  // Logado mas não admin: verifica acesso
+  const acesso = await dbGetMeuAcesso(clienteTemp.id);
+  if (!acesso) {
+    mostrarTelaAcesso(clienteTemp.nome, user.email);
+    return;
+  }
+  if (acesso.status === 'pendente') {
+    mostrarAguardando();
+    return;
+  }
+  if (acesso.status === 'rejeitado') {
+    mostrarRejeitado();
+    return;
+  }
+
+  // Aprovado — carrega tudo
+  document.getElementById('modal-acesso').style.display = 'none';
   await initPage();
 });
 
-async function verificarSenha() {
-  const input = document.getElementById('input-senha-cliente');
-  const erro  = document.getElementById('senha-erro');
-  const senha = input.value.trim();
-  if (!senha) return;
+// ── Tela de acesso ────────────────────────────────────────────
+function mostrarTelaAcesso(nomeCliente, emailPre) {
+  document.getElementById('modal-acesso').style.display = 'flex';
+  document.getElementById('acesso-subtitulo').textContent = nomeCliente;
+  if (emailPre) {
+    // Já logado mas sem acesso — mostra formulário de solicitação direta
+    document.getElementById('acesso-tab-login').style.display = 'none';
+    mostrarAbaAcesso('cadastro');
+    document.getElementById('cad-email').value = emailPre;
+    document.getElementById('cad-email').readOnly = true;
+  }
+}
+
+function mostrarAbaAcesso(aba) {
+  document.getElementById('acesso-tab-login').classList.toggle('active', aba === 'login');
+  document.getElementById('acesso-tab-cadastro').classList.toggle('active', aba === 'cadastro');
+  document.getElementById('acesso-form-login').style.display   = aba === 'login'   ? 'block' : 'none';
+  document.getElementById('acesso-form-cadastro').style.display = aba === 'cadastro' ? 'block' : 'none';
+  document.getElementById('acesso-erro').style.display = 'none';
+}
+
+function mostrarAguardando() {
+  document.getElementById('modal-acesso').style.display = 'flex';
+  document.getElementById('acesso-form-login').style.display = 'none';
+  document.getElementById('acesso-form-cadastro').style.display = 'none';
+  document.getElementById('acesso-tabs').style.display = 'none';
+  document.getElementById('acesso-aguardando').style.display = 'block';
+}
+
+function mostrarRejeitado() {
+  document.getElementById('modal-acesso').style.display = 'flex';
+  document.getElementById('acesso-form-login').style.display = 'none';
+  document.getElementById('acesso-form-cadastro').style.display = 'none';
+  document.getElementById('acesso-tabs').style.display = 'none';
+  document.getElementById('acesso-rejeitado').style.display = 'block';
+}
+
+async function fazerLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const senha  = document.getElementById('login-senha').value;
+  const erro   = document.getElementById('acesso-erro');
+  if (!email || !senha) return;
 
   try {
-    const cliente = await dbGetCliente(PAGE_SLUG);
-    if (!cliente.senha || cliente.senha === senha) {
-      // Correta (ou cliente sem senha definida)
-      localStorage.setItem(`bz-auth-${PAGE_SLUG}`, '1');
-      document.getElementById('modal-senha').style.display = 'none';
-      await initPage();
-    } else {
-      erro.style.display = 'block';
-      input.value = '';
-      input.focus();
-    }
-  } catch (err) {
-    erro.textContent = 'Erro ao verificar. Tente novamente.';
+    await dbSignIn(email, senha);
+    // Recarrega para verificar acesso
+    window.location.reload();
+  } catch (e) {
+    erro.textContent = 'E-mail ou senha incorretos.';
     erro.style.display = 'block';
   }
+}
+
+async function solicitarAcesso() {
+  const nome  = document.getElementById('cad-nome').value.trim();
+  const email = document.getElementById('cad-email').value.trim();
+  const senha  = document.getElementById('cad-senha').value;
+  const erro   = document.getElementById('acesso-erro');
+
+  if (!nome || !email || !senha) {
+    erro.textContent = 'Preencha todos os campos.';
+    erro.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('btn-solicitar');
+  btn.disabled = true; btn.textContent = 'Enviando…';
+
+  try {
+    // Cria conta ou faz login se já existir
+    let user;
+    try {
+      const res = await db.auth.signUp({ email, password: senha });
+      if (res.error) throw res.error;
+      user = res.data.user;
+    } catch (e) {
+      // Pode já ter conta — tenta login
+      const res2 = await db.auth.signInWithPassword({ email, password: senha });
+      if (res2.error) throw new Error('E-mail já cadastrado com outra senha.');
+      user = res2.data.user;
+    }
+
+    // Busca cliente
+    const cliente = await dbGetCliente(PAGE_SLUG);
+
+    // Verifica se já tem acesso
+    const jaExiste = await dbGetMeuAcesso(cliente.id);
+    if (!jaExiste) {
+      await dbSolicitarAcesso({ cliente_id: cliente.id, user_id: user.id, nome, email });
+    }
+
+    mostrarAguardando();
+  } catch (e) {
+    erro.textContent = e.message || 'Erro ao solicitar acesso.';
+    erro.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Solicitar acesso';
+  }
+}
+
+async function sairCliente() {
+  await dbSignOut();
+  window.location.reload();
 }
 
 async function initPage() {

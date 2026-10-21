@@ -18,8 +18,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateThemeBtn();
   injectFeedbackButton('admin');
 
-  // Carrega clientes
+  // Carrega clientes e badge de pendentes
   await loadClientes();
+  await atualizarBadgePendentes();
 });
 
 // ── Carregar clientes ─────────────────────────────────────────
@@ -53,7 +54,7 @@ function clienteCardHTML(c) {
   const delta = parseFollowers(c.seguidores_atual) - parseFollowers(c.seguidores_inicial);
   const deltaStr = fmtDeltaFollowers(delta);
   return `
-    <div class="client-card" onclick="window.location.href='cliente.html?slug=${c.slug}'">
+    <div class="client-card" onclick="window.location.href='/${c.slug}'">
       <div class="top">
         <div class="av" style="background:${avatarColor(c.iniciais)}">${c.iniciais}</div>
         <div>
@@ -73,7 +74,7 @@ function clienteCardHTML(c) {
         </div>
       </div>
       <div style="display:flex;gap:8px;margin-top:4px">
-        <a href="cliente.html?slug=${c.slug}" class="btn btn-primary btn-sm" onclick="event.stopPropagation()">Ver painel</a>
+        <a href="/${c.slug}" class="btn btn-primary btn-sm" onclick="event.stopPropagation()">Ver painel</a>
         <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();copiarLink('${c.slug}')">📋 Copiar link</button>
         <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();confirmarExcluir('${c.id}','${c.nome}')">🗑</button>
       </div>
@@ -127,7 +128,7 @@ async function excluirCliente() {
 function abrirNovoCliente() {
   // Limpa form
   ['nc-nome','nc-slug','nc-plano','nc-inicio','nc-instagram','nc-duracao',
-   'nc-seg-inicial','nc-seg-atual','nc-media-views','nc-senha','nc-resp-cargo','nc-resp-contato'].forEach(id => {
+   'nc-seg-inicial','nc-seg-atual','nc-media-views'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -162,7 +163,6 @@ async function salvarNovoCliente() {
   const segIni   = document.getElementById('nc-seg-inicial').value.trim();
   const segAtual = document.getElementById('nc-seg-atual').value.trim() || segIni;
   const mediaViews = document.getElementById('nc-media-views').value.trim();
-  const senha    = document.getElementById('nc-senha').value.trim();
 
   if (!nome || !slug) {
     showToast('Nome e slug são obrigatórios.', 'error');
@@ -182,7 +182,6 @@ async function salvarNovoCliente() {
       seguidores_atual: segAtual,
       media_views_inicial: mediaViews,
     };
-    if (senha) payload.senha = senha;
     const cliente = await dbCreateCliente(payload);
 
     // 2. Adiciona Anderson como admin (ordem 0)
@@ -199,6 +198,112 @@ async function salvarNovoCliente() {
   } finally {
     btn.disabled = false;
     btn.textContent = 'Criar cliente';
+  }
+}
+
+// ── Solicitações de acesso ────────────────────────────────────
+async function atualizarBadgePendentes() {
+  try {
+    const pendentes = await dbListAcessosPendentes();
+    const badge = document.getElementById('badge-pendentes');
+    if (!badge) return;
+    if (pendentes.length > 0) {
+      badge.textContent = pendentes.length;
+      badge.style.display = 'inline';
+    } else {
+      badge.style.display = 'none';
+    }
+  } catch (e) { /* silencioso */ }
+}
+
+async function abrirSolicitacoes() {
+  openModal('modal-solicitacoes');
+  const lista = document.getElementById('solicitacoes-lista');
+  lista.innerHTML = '<div class="loading-spinner"><div class="spinner"></div> Carregando…</div>';
+
+  try {
+    const pendentes = await dbListAcessosPendentes();
+    if (!pendentes.length) {
+      lista.innerHTML = '<div class="empty-state"><div class="icon">✅</div><h3>Nenhuma solicitação pendente</h3></div>';
+      return;
+    }
+
+    // Para cada solicitação, busca responsáveis do cliente correspondente
+    const clienteIds = [...new Set(pendentes.map(p => p.cliente_id))];
+    const respMap = {};
+    await Promise.all(clienteIds.map(async (cid) => {
+      try {
+        const resps = await dbListResponsaveis(cid);
+        respMap[cid] = resps;
+      } catch(e) { respMap[cid] = []; }
+    }));
+
+    lista.innerHTML = pendentes.map(s => {
+      const resps = respMap[s.cliente_id] || [];
+      const respOptions = resps.map(r => `<option value="${r.id}">${r.nome} (${r.cargo || 'sem cargo'})</option>`).join('');
+      return `
+        <div id="sol-${s.id}" style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">
+            <div>
+              <div style="font-weight:600;font-size:14px">${s.nome}</div>
+              <div style="font-size:12px;color:var(--fg3);margin-top:2px">${s.email}</div>
+              <div style="font-size:12px;color:var(--fg3);margin-top:2px">
+                Painel: <strong>${s.clientes?.nome || s.cliente_id}</strong> ·
+                ${new Date(s.criado_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })}
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              ${resps.length ? `
+                <select id="resp-${s.id}" style="font-size:12px;padding:4px 8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--fg)">
+                  <option value="">Vincular responsável…</option>
+                  ${respOptions}
+                </select>
+              ` : ''}
+              <button class="btn btn-primary btn-sm" onclick="aprovarAcesso('${s.id}','${s.cliente_id}')">✓ Aprovar</button>
+              <button class="btn btn-danger btn-sm" onclick="rejeitarAcesso('${s.id}')">✕ Rejeitar</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  } catch (err) {
+    lista.innerHTML = `<p style="color:var(--fg3)">${err.message}</p>`;
+  }
+}
+
+async function aprovarAcesso(id, clienteId) {
+  const respSelect = document.getElementById(`resp-${id}`);
+  const responsavelId = respSelect?.value || null;
+
+  try {
+    await dbAprovarAcesso(id, responsavelId);
+    document.getElementById(`sol-${id}`)?.remove();
+    showToast('Acesso aprovado!', 'success');
+    await atualizarBadgePendentes();
+
+    const lista = document.getElementById('solicitacoes-lista');
+    if (!lista.querySelector('[id^="sol-"]')) {
+      lista.innerHTML = '<div class="empty-state"><div class="icon">✅</div><h3>Nenhuma solicitação pendente</h3></div>';
+    }
+  } catch (err) {
+    showToast('Erro ao aprovar: ' + err.message, 'error');
+  }
+}
+
+async function rejeitarAcesso(id) {
+  try {
+    await dbRejeitarAcesso(id);
+    document.getElementById(`sol-${id}`)?.remove();
+    showToast('Acesso rejeitado.', 'success');
+    await atualizarBadgePendentes();
+
+    const lista = document.getElementById('solicitacoes-lista');
+    if (!lista.querySelector('[id^="sol-"]')) {
+      lista.innerHTML = '<div class="empty-state"><div class="icon">✅</div><h3>Nenhuma solicitação pendente</h3></div>';
+    }
+  } catch (err) {
+    showToast('Erro ao rejeitar: ' + err.message, 'error');
   }
 }
 
