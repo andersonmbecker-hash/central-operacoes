@@ -234,9 +234,8 @@ function renderHeader() {
   const sub  = document.getElementById('client-sub');
   if (av) {
     if (c.logo_url) {
-      av.innerHTML = `<img src="${c.logo_url}" alt="${c.nome}" style="background:#fff">`;
       av.style.background = 'var(--bg3)';
-      av.textContent = '';
+      av.innerHTML = `<img src="${c.logo_url}" alt="${c.nome}" style="background:#fff">`;
     } else {
       av.textContent = c.iniciais;
       av.style.background = avatarColor(c.iniciais);
