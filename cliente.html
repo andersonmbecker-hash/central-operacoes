@@ -59,7 +59,16 @@
 
     <!-- Header do cliente -->
     <div class="client-header">
-      <div class="client-avatar" id="client-av">?</div>
+      <div style="position:relative;flex-shrink:0">
+        <div class="client-avatar" id="client-av">?</div>
+        <!-- Botão de logo — só aparece pro admin, injetado por renderHeader() -->
+        <div id="logo-upload-wrap" style="display:none;position:absolute;bottom:-6px;right:-6px">
+          <button onclick="document.getElementById('logo-file-input').click()"
+                  style="width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;border:2px solid var(--bg);font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer"
+                  title="Trocar logo">📷</button>
+          <input type="file" id="logo-file-input" accept="image/*" style="display:none" onchange="uploadLogoCliente(this)">
+        </div>
+      </div>
       <div>
         <h1 id="client-nome">Carregando…</h1>
         <div class="sub" id="client-sub"></div>
