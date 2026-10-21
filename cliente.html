@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Central de Operações</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<!-- Mobile header -->
+<div class="mobile-header">
+  <button onclick="toggleSidebar()" style="font-size:18px;background:none;border:none;color:var(--fg);cursor:pointer">☰</button>
+  <span style="font-weight:700;color:var(--accent);font-size:13px;letter-spacing:.05em" id="mobile-nome">Central de Operações</span>
+  <button class="btn-theme" id="btn-theme" onclick="toggleTheme()" style="margin:0">🌙</button>
+</div>
+
+<div class="app-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="brand">Buzina Digital</div>
+      <div class="sub">Central de Operações</div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <!-- Voltar (só admin) -->
+      <button id="sidebar-voltar" class="nav-item" onclick="window.location.href='/index.html'">
+        <span class="icon">←</span> Dashboard
+      </button>
+
+      <div class="sidebar-section" id="sidebar-admin-section">Atalhos</div>
+      <button class="nav-item" onclick="openNovaIdeia()">
+        <span class="icon">💡</span> Nova ideia
+      </button>
+      <button class="nav-item" onclick="openNovoRoteiro()">
+        <span class="icon">📝</span> Novo roteiro
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <div class="avatar" id="client-av-sidebar">?</div>
+        <div>
+          <div class="name" id="client-nome-sidebar">…</div>
+          <div class="role" id="client-plan-sidebar">…</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn-theme" id="btn-theme" onclick="toggleTheme()" title="Tema">🌙</button>
+        <button id="btn-logout" class="btn-theme" onclick="sair()" title="Sair" style="font-size:12px">→</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CONTEÚDO -->
+  <main class="main-content" id="page-root">
+
+    <!-- Header do cliente -->
+    <div class="client-header">
+      <div class="client-avatar" id="client-av">?</div>
+      <div>
+        <h1 id="client-nome">Carregando…</h1>
+        <div class="sub" id="client-sub"></div>
+      </div>
+    </div>
+
+    <!-- Conquistas -->
+    <div class="conquistas-bar" id="conquistas-bar"></div>
+
+    <!-- Meta grid -->
+    <div class="meta-grid" id="meta-grid">
+      <div class="loading-spinner"><div class="spinner"></div></div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs-bar">
+      <button class="tab-btn active" data-tab="ideias"     onclick="switchTab('ideias')">💡 Ideias</button>
+      <button class="tab-btn"        data-tab="aprovadas"  onclick="switchTab('aprovadas')">✅ Aprovadas</button>
+      <button class="tab-btn"        data-tab="roteiros"   onclick="switchTab('roteiros')">📝 Roteiros</button>
+      <button class="tab-btn"        data-tab="calendario" onclick="switchTab('calendario')">📅 Calendário</button>
+    </div>
+
+    <!-- Painéis -->
+    <div id="tab-ideias"    class="tab-panel active"><div id="ideias-list"></div></div>
+    <div id="tab-aprovadas" class="tab-panel"><div id="aprovadas-list"></div></div>
+    <div id="tab-roteiros"  class="tab-panel"><div id="roteiros-list"></div></div>
+    <div id="tab-calendario" class="tab-panel"><div id="calendario-container"></div></div>
+
+  </main>
+</div>
+
+<!-- ============================================================
+     MODAL — Detalhe da Ideia
+     ============================================================ -->
+<div id="modal-ideia" class="modal-overlay" style="display:none">
+  <div class="modal-box" style="max-width:540px">
+    <div class="modal-header">
+      <div>
+        <h3 id="modal-ideia-titulo"></h3>
+        <div style="margin-top:4px" id="modal-ideia-formato"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-ideia')">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;gap:14px">
+        <div>
+          <div class="form-group"><label>Data prevista de publicação</label>
+            <input type="date" id="modal-ideia-date">
+          </div>
+        </div>
+        <div>
+          <p style="font-size:11px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Descrição</p>
+          <p id="modal-ideia-desc" style="font-size:13px;color:var(--fg)"></p>
+        </div>
+        <div>
+          <p style="font-size:11px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Conceito</p>
+          <p id="modal-ideia-conceito" style="font-size:13px;color:var(--fg)"></p>
+        </div>
+        <div>
+          <p style="font-size:11px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Links de referência</p>
+          <div id="modal-ideia-links" style="font-size:13px"></div>
+        </div>
+        <div>
+          <p style="font-size:11px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Observações</p>
+          <p id="modal-ideia-obs" style="font-size:13px;color:var(--fg)"></p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" id="modal-ideia-footer"></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL — Nova Ideia
+     ============================================================ -->
+<div id="modal-nova-ideia" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>💡 Nova Ideia</h3>
+      <button class="modal-close" onclick="closeModal('modal-nova-ideia')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Título *</label>
+          <input type="text" id="ni-titulo" placeholder="Título da ideia">
+        </div>
+        <div class="form-group">
+          <label>Formato</label>
+          <select id="ni-formato">
+            <option value="reel">Reel</option>
+            <option value="carrossel">Carrossel</option>
+            <option value="stories">Stories</option>
+            <option value="feed">Feed</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Data prevista</label>
+        <input type="date" id="ni-data">
+      </div>
+      <div class="form-group">
+        <label>Descrição</label>
+        <textarea id="ni-desc" placeholder="Descreva a ideia…"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Conceito</label>
+        <textarea id="ni-conceito" placeholder="Conceito criativo…"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Links de referência</label>
+        <textarea id="ni-links" placeholder="Um link por linha" rows="2"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Observações</label>
+        <input type="text" id="ni-obs" placeholder="Observações adicionais">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-nova-ideia')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-salvar-ideia" onclick="salvarNovaIdeia()">Adicionar ideia</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL — Novo Roteiro (manual)
+     ============================================================ -->
+<div id="modal-novo-roteiro" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>📝 Novo Roteiro</h3>
+      <button class="modal-close" onclick="closeModal('modal-novo-roteiro')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Título *</label>
+          <input type="text" id="nr-titulo" placeholder="Título do roteiro">
+        </div>
+        <div class="form-group">
+          <label>Formato</label>
+          <select id="nr-formato">
+            <option value="reel">Reel</option>
+            <option value="carrossel">Carrossel</option>
+            <option value="stories">Stories</option>
+            <option value="feed">Feed</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Data prevista</label>
+        <input type="date" id="nr-data">
+      </div>
+      <div class="form-group">
+        <label>Script (opcional)</label>
+        <textarea id="nr-script" placeholder="Cole o roteiro aqui…" rows="5"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-novo-roteiro')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-salvar-roteiro" onclick="salvarNovoRoteiro()">Criar roteiro</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL — Script do Roteiro
+     ============================================================ -->
+<div id="modal-script" class="modal-overlay" style="display:none">
+  <div class="modal-box" style="max-width:620px">
+    <div class="modal-header">
+      <h3 id="script-titulo">Roteiro</h3>
+      <button class="modal-close" onclick="closeModal('modal-script')">×</button>
+    </div>
+    <div class="modal-body">
+      <textarea id="script-texto" rows="12" placeholder="Escreva o roteiro aqui…"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-script')">Fechar</button>
+      <button class="btn btn-primary" id="btn-salvar-script" onclick="salvarScript()">💾 Salvar roteiro</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL — Conquista
+     ============================================================ -->
+<div id="modal-conquista" class="modal-overlay" style="display:none">
+  <div class="modal-box" style="max-width:400px">
+    <div class="modal-header">
+      <h3>🏅 Nova Conquista</h3>
+      <button class="modal-close" onclick="closeModal('modal-conquista')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Conquista</label>
+        <input type="text" id="conquista-texto" placeholder="Ex: Primeiro reel viral ✨">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-conquista')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarConquista()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL — Atualizar Seguidores
+     ============================================================ -->
+<div id="modal-edit-followers" class="modal-overlay" style="display:none">
+  <div class="modal-box" style="max-width:380px">
+    <div class="modal-header">
+      <h3>📊 Atualizar Seguidores</h3>
+      <button class="modal-close" onclick="closeModal('modal-edit-followers')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Seguidores atuais</label>
+        <input type="text" id="edit-seg-valor" placeholder="Ex: 13,2 mil">
+      </div>
+      <p style="font-size:12px;color:var(--fg3)">A data de atualização será registrada automaticamente como hoje.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-edit-followers')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarSeguidores()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL — Gerenciar Responsáveis
+     ============================================================ -->
+<div id="modal-resp" class="modal-overlay" style="display:none">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-header">
+      <h3>👥 Responsáveis</h3>
+      <button class="modal-close" onclick="closeModal('modal-resp')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="resp-list" id="resp-lista-modal"></div>
+      <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
+      <p style="font-size:12px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Adicionar responsável</p>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nome *</label>
+          <input type="text" id="add-resp-nome" placeholder="Nome completo">
+        </div>
+        <div class="form-group">
+          <label>Cargo</label>
+          <input type="text" id="add-resp-cargo" placeholder="Redatora, Designer…">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Contato</label>
+        <input type="text" id="add-resp-contato" placeholder="WhatsApp, e-mail…">
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="adicionarResp()">＋ Adicionar</button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-resp')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL — Novo Evento Calendário
+     ============================================================ -->
+<div id="modal-novo-evento" class="modal-overlay" style="display:none">
+  <div class="modal-box" style="max-width:380px">
+    <div class="modal-header">
+      <h3>📅 Novo Evento</h3>
+      <button class="modal-close" onclick="closeModal('modal-novo-evento')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Dia *</label>
+          <input type="number" id="ev-dia" min="1" max="31" placeholder="15">
+        </div>
+        <div class="form-group">
+          <label>Tipo</label>
+          <select id="ev-tipo">
+            <option value="reel">Reel</option>
+            <option value="carrossel">Carrossel</option>
+            <option value="stories">Stories</option>
+            <option value="feed">Feed</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Título *</label>
+        <input type="text" id="ev-titulo" placeholder="Ex: Reel transformação">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-novo-evento')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarEvento()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast-container"></div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/db.js"></script>
+<script src="/js/shared.js"></script>
+<script src="/js/cliente.js"></script>
+
+<script>
+  // Sync sidebar avatar/nome após carregar
+  function syncSidebar() {
+    if (!PAGE_CLIENTE) return;
+    const av = document.getElementById('client-av-sidebar');
+    const nome = document.getElementById('client-nome-sidebar');
+    const plan = document.getElementById('client-plan-sidebar');
+    const mNome = document.getElementById('mobile-nome');
+    if (av) { av.textContent = PAGE_CLIENTE.iniciais; av.style.background = avatarColor(PAGE_CLIENTE.iniciais); }
+    if (nome) nome.textContent = PAGE_CLIENTE.nome;
+    if (plan) plan.textContent = PAGE_CLIENTE.plano;
+    if (mNome) mNome.textContent = PAGE_CLIENTE.nome;
+  }
+
+  // Sair (admin)
+  async function sair() {
+    await dbSignOut();
+    window.location.href = '/login.html';
+  }
+
+  // Após carregar cliente, sincroniza sidebar
+  const _origLoadTudo = loadTudo;
+  // Observamos que loadTudo é async e chama renderHeader
+  // Adicionamos sync no renderHeader original
+  const _origRenderHeader = renderHeader;
+  window.renderHeader = function() {
+    _origRenderHeader();
+    syncSidebar();
+  };
+</script>
+
+</body>
+</html>
