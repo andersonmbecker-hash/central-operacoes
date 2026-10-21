@@ -110,10 +110,12 @@ async function dbListConquistas(clienteId) {
   return data;
 }
 
-async function dbAddConquista(clienteId, texto) {
+async function dbAddConquista(clienteId, texto, data_conquista) {
+  const payload = { cliente_id: clienteId, texto };
+  if (data_conquista) payload.data = data_conquista;
   const { data, error } = await db
     .from('conquistas')
-    .insert({ cliente_id: clienteId, texto })
+    .insert(payload)
     .select()
     .single();
   if (error) throw error;

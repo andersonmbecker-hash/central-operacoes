@@ -127,7 +127,7 @@ async function excluirCliente() {
 function abrirNovoCliente() {
   // Limpa form
   ['nc-nome','nc-slug','nc-plano','nc-inicio','nc-instagram','nc-duracao',
-   'nc-seg-inicial','nc-seg-atual','nc-media-views','nc-resp-cargo','nc-resp-contato'].forEach(id => {
+   'nc-seg-inicial','nc-seg-atual','nc-media-views','nc-senha','nc-resp-cargo','nc-resp-contato'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -162,6 +162,7 @@ async function salvarNovoCliente() {
   const segIni   = document.getElementById('nc-seg-inicial').value.trim();
   const segAtual = document.getElementById('nc-seg-atual').value.trim() || segIni;
   const mediaViews = document.getElementById('nc-media-views').value.trim();
+  const senha    = document.getElementById('nc-senha').value.trim();
 
   if (!nome || !slug) {
     showToast('Nome e slug são obrigatórios.', 'error');
@@ -175,12 +176,14 @@ async function salvarNovoCliente() {
   try {
     // 1. Cria cliente
     const iniciais = gerarIniciais(nome);
-    const cliente = await dbCreateCliente({
+    const payload = {
       slug, nome, iniciais, plano, inicio, instagram, duracao,
       seguidores_inicial: segIni,
       seguidores_atual: segAtual,
       media_views_inicial: mediaViews,
-    });
+    };
+    if (senha) payload.senha = senha;
+    const cliente = await dbCreateCliente(payload);
 
     // 2. Adiciona Anderson como admin (ordem 0)
     await dbAddResponsavel({

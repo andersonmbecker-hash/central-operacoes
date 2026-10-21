@@ -43,12 +43,52 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('sidebar-voltar')?.remove();
   }
 
+  // Portão de senha (apenas para clientes não-admin)
+  if (!IS_ADMIN) {
+    const authed = localStorage.getItem(`bz-auth-${PAGE_SLUG}`);
+    if (!authed) {
+      // Mostra modal de senha — aguarda verificação
+      document.getElementById('modal-senha').style.display = 'flex';
+      return; // interrompe; verificarSenha() chama initPage() depois
+    }
+  } else {
+    document.getElementById('modal-senha').style.display = 'none';
+  }
+
+  await initPage();
+});
+
+async function verificarSenha() {
+  const input = document.getElementById('input-senha-cliente');
+  const erro  = document.getElementById('senha-erro');
+  const senha = input.value.trim();
+  if (!senha) return;
+
+  try {
+    const cliente = await dbGetCliente(PAGE_SLUG);
+    if (!cliente.senha || cliente.senha === senha) {
+      // Correta (ou cliente sem senha definida)
+      localStorage.setItem(`bz-auth-${PAGE_SLUG}`, '1');
+      document.getElementById('modal-senha').style.display = 'none';
+      await initPage();
+    } else {
+      erro.style.display = 'block';
+      input.value = '';
+      input.focus();
+    }
+  } catch (err) {
+    erro.textContent = 'Erro ao verificar. Tente novamente.';
+    erro.style.display = 'block';
+  }
+}
+
+async function initPage() {
   try {
     await loadTudo();
   } catch (err) {
     showError('Erro ao carregar cliente: ' + err.message);
   }
-});
+}
 
 async function loadTudo() {
   [PAGE_CLIENTE, PAGE_RESP, PAGE_CONQUISTAS, PAGE_IDEIAS, PAGE_ROTEIROS, PAGE_EVENTOS] =
@@ -158,13 +198,15 @@ function renderConquistas() {
 
 async function salvarConquista() {
   const texto = document.getElementById('conquista-texto').value.trim();
+  const data  = document.getElementById('conquista-data').value || null;
   if (!texto) { showToast('Digite o texto da conquista.', 'error'); return; }
   try {
-    const c = await dbAddConquista(PAGE_CLIENTE.id, texto);
+    const c = await dbAddConquista(PAGE_CLIENTE.id, texto, data);
     PAGE_CONQUISTAS.push(c);
     renderConquistas();
     closeModal('modal-conquista');
     document.getElementById('conquista-texto').value = '';
+    document.getElementById('conquista-data').value = '';
   } catch (err) { showToast(err.message, 'error'); }
 }
 
