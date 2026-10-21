@@ -532,26 +532,6 @@ textarea { resize: vertical; min-height: 80px; }
   border-radius: inherit;
   display: block;
 }
-/* Botão de trocar logo — aparece ao hover no avatar do card */
-.av-wrap {
-  position: relative;
-  flex-shrink: 0;
-}
-.av-wrap .av-upload-btn {
-  display: none;
-  position: absolute;
-  inset: 0;
-  border-radius: 10px;
-  background: rgba(0,0,0,.55);
-  color: #fff;
-  font-size: 16px;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  border: none;
-}
-.av-wrap:hover .av-upload-btn { display: flex; }
-.av-wrap input[type=file] { display: none; }
 
 /* Conquistas section */
 .conquistas-section {
