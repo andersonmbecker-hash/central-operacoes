@@ -244,6 +244,10 @@ function renderHeader() {
   }
   if (nome) nome.textContent = c.nome;
   if (sub)  sub.textContent  = `${c.instagram} · ${c.plano} · Início: ${c.inicio} · ${c.duracao}`;
+
+  // Botão de logo só visível pro admin
+  const logoWrap = document.getElementById('logo-upload-wrap');
+  if (logoWrap) logoWrap.style.display = IS_ADMIN ? 'block' : 'none';
 }
 
 function avatarColor(ini) {
@@ -337,6 +341,23 @@ async function salvarConquista() {
     document.getElementById('conquista-texto').value = '';
     document.getElementById('conquista-data').value = '';
   } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function uploadLogoCliente(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { showToast('Imagem deve ter menos de 2MB.', 'error'); return; }
+  showToast('Enviando logo…');
+  try {
+    const url = await dbUploadLogo(PAGE_CLIENTE.id, file);
+    await dbUpdateCliente(PAGE_CLIENTE.id, { logo_url: url });
+    PAGE_CLIENTE.logo_url = url;
+    renderHeader();
+    showToast('Logo atualizada!', 'success');
+  } catch (err) {
+    showToast('Erro: ' + err.message, 'error');
+  }
+  input.value = '';
 }
 
 async function removerConquista(id) {
