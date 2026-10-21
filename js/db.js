@@ -298,6 +298,19 @@ async function dbRejeitarAcesso(id) {
   if (error) throw error;
 }
 
+// ── Storage — Logos ───────────────────────────────────────────
+async function dbUploadLogo(clienteId, file) {
+  const ext  = file.name.split('.').pop().toLowerCase();
+  const path = `${clienteId}.${ext}`;
+  const { error } = await db.storage
+    .from('logos')
+    .upload(path, file, { upsert: true, contentType: file.type });
+  if (error) throw error;
+  const { data } = db.storage.from('logos').getPublicUrl(path);
+  // Adiciona cache-busting para forçar reload após update
+  return data.publicUrl + '?t=' + Date.now();
+}
+
 // ── Feedback ──────────────────────────────────────────────────
 async function dbEnviarFeedback(payload) {
   const { error } = await db

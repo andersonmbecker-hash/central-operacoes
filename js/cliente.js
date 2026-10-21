@@ -232,7 +232,16 @@ function renderHeader() {
   const av = document.getElementById('client-av');
   const nome = document.getElementById('client-nome');
   const sub  = document.getElementById('client-sub');
-  if (av)   { av.textContent = c.iniciais; av.style.background = avatarColor(c.iniciais); }
+  if (av) {
+    if (c.logo_url) {
+      av.innerHTML = `<img src="${c.logo_url}" alt="${c.nome}" style="background:#fff">`;
+      av.style.background = 'var(--bg3)';
+      av.textContent = '';
+    } else {
+      av.textContent = c.iniciais;
+      av.style.background = avatarColor(c.iniciais);
+    }
+  }
   if (nome) nome.textContent = c.nome;
   if (sub)  sub.textContent  = `${c.instagram} · ${c.plano} · Início: ${c.inicio} · ${c.duracao}`;
 }
@@ -289,15 +298,30 @@ function renderMeta() {
 
 // ── Conquistas ────────────────────────────────────────────────
 function renderConquistas() {
+  const section = document.getElementById('conquistas-section');
   const bar = document.getElementById('conquistas-bar');
   if (!bar) return;
-  bar.innerHTML = PAGE_CONQUISTAS.map(c => `
-    <div class="conquista-item" title="${c.texto}">${c.texto}
-      ${IS_ADMIN ? `<button onclick="removerConquista('${c.id}')" style="margin-left:6px;color:inherit;opacity:.6;font-size:12px">×</button>` : ''}
-    </div>
-  `).join('');
+
+  bar.innerHTML = PAGE_CONQUISTAS.map(c => {
+    const dataFmt = c.data
+      ? `<span class="conquista-data">${new Date(c.data + 'T12:00:00').toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' })}</span>`
+      : '';
+    return `
+      <div class="conquista-item">
+        <span>${c.texto}</span>
+        ${dataFmt}
+        ${IS_ADMIN ? `<button onclick="removerConquista('${c.id}')" style="color:inherit;opacity:.5;font-size:12px;margin-left:2px">×</button>` : ''}
+      </div>
+    `;
+  }).join('');
+
   if (IS_ADMIN) {
     bar.innerHTML += `<button class="btn-add-conquista" onclick="openModal('modal-conquista')">＋ Conquista</button>`;
+  }
+
+  // Mostra o bloco se tiver conquistas (ou se for admin, que sempre pode adicionar)
+  if (section) {
+    section.style.display = (PAGE_CONQUISTAS.length > 0 || IS_ADMIN) ? 'block' : 'none';
   }
 }
 

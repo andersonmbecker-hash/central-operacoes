@@ -53,10 +53,17 @@ function renderClienteCards() {
 function clienteCardHTML(c) {
   const delta = parseFollowers(c.seguidores_atual) - parseFollowers(c.seguidores_inicial);
   const deltaStr = fmtDeltaFollowers(delta);
+  const avInner = c.logo_url
+    ? `<img src="${c.logo_url}" alt="${c.nome}" style="background:#fff">`
+    : c.iniciais;
   return `
     <div class="client-card" onclick="window.location.href='/${c.slug}'">
       <div class="top">
-        <div class="av" style="background:${avatarColor(c.iniciais)}">${c.iniciais}</div>
+        <div class="av-wrap">
+          <div class="av" style="background:${c.logo_url ? 'var(--bg3)' : avatarColor(c.iniciais)}">${avInner}</div>
+          <button class="av-upload-btn" title="Trocar logo" onclick="event.stopPropagation();triggerLogoUpload('${c.id}')">📷</button>
+          <input type="file" id="logo-input-${c.id}" accept="image/*" onchange="uploadLogo('${c.id}', this)">
+        </div>
         <div>
           <div class="name">${c.nome}</div>
           <div class="plan">${c.plano} · ${c.instagram}</div>
@@ -198,6 +205,33 @@ async function salvarNovoCliente() {
   } finally {
     btn.disabled = false;
     btn.textContent = 'Criar cliente';
+  }
+}
+
+// ── Logo do cliente ───────────────────────────────────────────
+function triggerLogoUpload(clienteId) {
+  document.getElementById(`logo-input-${clienteId}`)?.click();
+}
+
+async function uploadLogo(clienteId, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const maxMb = 2;
+  if (file.size > maxMb * 1024 * 1024) {
+    showToast(`A imagem deve ter menos de ${maxMb}MB.`, 'error');
+    return;
+  }
+  showToast('Enviando logo…');
+  try {
+    const url = await dbUploadLogo(clienteId, file);
+    await dbUpdateCliente(clienteId, { logo_url: url });
+    // Atualiza localmente sem recarregar tudo
+    const idx = clientes.findIndex(c => c.id === clienteId);
+    if (idx >= 0) clientes[idx].logo_url = url;
+    renderClienteCards();
+    showToast('Logo atualizada!', 'success');
+  } catch (err) {
+    showToast('Erro no upload: ' + err.message, 'error');
   }
 }
 
