@@ -131,7 +131,7 @@ async function excluirCliente() {
 function abrirNovoCliente() {
   // Limpa form
   ['nc-nome','nc-slug','nc-plano','nc-inicio','nc-instagram','nc-duracao',
-   'nc-seg-inicial','nc-seg-atual','nc-media-views'].forEach(id => {
+   'nc-conteudos-semana','nc-seg-inicial','nc-seg-atual','nc-media-views'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -179,8 +179,10 @@ async function salvarNovoCliente() {
   try {
     // 1. Cria cliente
     const iniciais = gerarIniciais(nome);
+    const conteudosSemana = parseInt(document.getElementById('nc-conteudos-semana')?.value) || 4;
     const payload = {
       slug, nome, iniciais, plano, inicio, instagram, duracao,
+      conteudos_semana: conteudosSemana,
       seguidores_inicial: segIni,
       seguidores_atual: segAtual,
       media_views_inicial: mediaViews,

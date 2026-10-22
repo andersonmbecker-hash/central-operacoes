@@ -283,6 +283,12 @@ function renderMeta() {
       <div class="value">${c.media_views_inicial}</div>
       <div class="sub">Últimos 20 conteúdos (pré-plano)</div>
     </div>
+    ${c.conteudos_semana ? `
+    <div class="meta-card">
+      <div class="label">Plano de conteúdo</div>
+      <div class="value">${c.conteudos_semana}×</div>
+      <div class="sub">conteúdos por semana</div>
+    </div>` : ''}
     <div class="meta-card">
       <div class="label">Responsáveis</div>
       <div class="value" style="font-size:13px">
@@ -403,7 +409,10 @@ function ideiaCardHTML(i, isAprovada) {
     <div class="ideia-card" onclick="openIdeia('${i.id}')">
       <div class="card-top">
         <div class="card-title">${i.titulo}</div>
-        ${badgeFormato(i.formato)}
+        <div style="display:flex;gap:6px;align-items:center">
+          ${badgeFormato(i.formato)}
+          ${IS_ADMIN ? `<button onclick="event.stopPropagation();deletarIdeia('${i.id}')" title="Excluir ideia" style="background:none;border:none;cursor:pointer;color:var(--fg3);font-size:14px;line-height:1;padding:2px">×</button>` : ''}
+        </div>
       </div>
       <div class="card-desc">${i.descricao || i.conceito || ''}</div>
       <div class="card-meta">
@@ -412,6 +421,16 @@ function ideiaCardHTML(i, isAprovada) {
       </div>
     </div>
   `;
+}
+
+async function deletarIdeia(id) {
+  if (!confirm('Excluir esta ideia?')) return;
+  try {
+    await dbDeleteIdeia(id);
+    PAGE_IDEIAS = PAGE_IDEIAS.filter(i => i.id !== id);
+    renderIdeias();
+    renderAprovadas();
+  } catch (err) { showToast(err.message, 'error'); }
 }
 
 // ── Tab: Aprovadas ────────────────────────────────────────────
@@ -444,14 +463,16 @@ function renderRoteiros() {
 }
 
 function roteiroHTML(r) {
+  const ideiaVinculada = r.ideia_id ? PAGE_IDEIAS.find(i => i.id === r.ideia_id) : null;
   return `
     <div class="roteiro-item">
       <div class="top">
         <div>
           <div class="title">${r.titulo}</div>
-          <div style="margin-top:4px;display:flex;gap:6px;align-items:center">
+          <div style="margin-top:4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             ${badgeFormato(r.formato)}
             ${r.data_prevista ? `<span class="data-tag">📅 ${fmtDate(r.data_prevista)}</span>` : ''}
+            ${ideiaVinculada ? `<span class="data-tag" style="color:var(--blue);border-color:var(--blue)">💡 ${ideiaVinculada.titulo}</span>` : ''}
           </div>
         </div>
         ${IS_ADMIN ? `<button class="btn btn-ghost btn-sm" onclick="deletarRoteiro('${r.id}')" title="Excluir">🗑</button>` : ''}
@@ -495,6 +516,10 @@ async function deletarRoteiro(id) {
 }
 
 // ── Calendário ────────────────────────────────────────────────
+function getWeekNumber(dayOfMonth, firstDayOfWeek) {
+  return Math.floor((dayOfMonth - 1 + firstDayOfWeek) / 7);
+}
+
 function renderCalendario() {
   const container = document.getElementById('calendario-container');
   if (!container) return;
@@ -507,6 +532,7 @@ function renderCalendario() {
 
   const monthName = now.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
   const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  const capacidade = PAGE_CLIENTE?.conteudos_semana || 0;
 
   // Mapear eventos por dia
   const eventosByDay = {};
@@ -515,12 +541,41 @@ function renderCalendario() {
     eventosByDay[ev.dia].push(ev);
   });
 
+  // Contar eventos por semana
+  const eventosPorSemana = {};
+  for (let d = 1; d <= daysInMonth; d++) {
+    const wk = getWeekNumber(d, firstDayOfWeek);
+    eventosPorSemana[wk] = (eventosPorSemana[wk] || 0) + (eventosByDay[d]?.length || 0);
+  }
+
+  // Construir cabeçalho de semana → capacidade
+  function weekCapacityBadge(wk) {
+    if (!capacidade) return '';
+    const used = eventosPorSemana[wk] || 0;
+    const full = used >= capacidade;
+    return `<span class="week-cap-badge ${full ? 'full' : ''}">${used}/${capacidade}</span>`;
+  }
+
   let html = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${capacidade ? '8px' : '16px'}">
       <h3 style="font-size:15px;font-weight:700;text-transform:capitalize">${monthName}</h3>
       ${IS_ADMIN ? `<button class="btn btn-primary btn-sm" onclick="openNovoEvento()">＋ Evento</button>` : ''}
     </div>
-    <div class="calendar-grid">
+  `;
+
+  // Legenda de capacidade por semana
+  if (capacidade) {
+    const totalSemanas = Math.ceil((daysInMonth + firstDayOfWeek) / 7);
+    html += `<div class="week-cap-row" style="margin-bottom:12px">`;
+    for (let wk = 0; wk < totalSemanas; wk++) {
+      const used = eventosPorSemana[wk] || 0;
+      const full = used >= capacidade;
+      html += `<div class="week-cap-item ${full ? 'full' : ''}">Semana ${wk+1}: <strong>${used}/${capacidade}</strong>${full ? ' ✓' : ''}</div>`;
+    }
+    html += `</div>`;
+  }
+
+  html += `<div class="calendar-grid">
       ${weekDays.map(d => `<div class="cal-day-label">${d}</div>`).join('')}
   `;
 
@@ -591,6 +646,8 @@ function openIdeia(ideiaId) {
   openModal('modal-ideia');
 }
 
+let _agendarIdeiaId = null;
+
 async function aprovarIdeia(ideiaId) {
   try {
     await dbAprovarIdeia(ideiaId);
@@ -600,6 +657,35 @@ async function aprovarIdeia(ideiaId) {
     showToast('Ideia aprovada! ✓', 'success');
     renderIdeias();
     renderAprovadas();
+
+    // Pergunta se quer agendar no calendário
+    _agendarIdeiaId = ideiaId;
+    const agendarTitulo = document.getElementById('agendar-titulo');
+    if (agendarTitulo) agendarTitulo.textContent = i?.titulo || '';
+    document.getElementById('agendar-dia').value = i?.data_prevista
+      ? new Date(i.data_prevista + 'T12:00:00').getDate()
+      : '';
+    openModal('modal-agendar');
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function agendarNoCalendario() {
+  const dia = parseInt(document.getElementById('agendar-dia').value);
+  if (!dia || dia < 1 || dia > 31) { showToast('Informe um dia válido (1–31).', 'error'); return; }
+
+  const ideia = PAGE_IDEIAS.find(i => i.id === _agendarIdeiaId);
+  if (!ideia) { closeModal('modal-agendar'); return; }
+
+  try {
+    const ev = await dbCreateEvento({
+      cliente_id: PAGE_CLIENTE.id,
+      dia,
+      titulo:     ideia.titulo,
+      tipo:       ideia.formato || 'reel',
+    });
+    PAGE_EVENTOS.push(ev);
+    closeModal('modal-agendar');
+    showToast('Agendado no calendário! 📅', 'success');
   } catch (err) { showToast(err.message, 'error'); }
 }
 
@@ -685,24 +771,52 @@ async function salvarNovaIdeia() {
 }
 
 // ── Modal: Novo roteiro (manual) ──────────────────────────────
-function openNovoRoteiro() {
+function _autoFillRoteiroFromIdeia(ideiaId) {
+  if (!ideiaId) return;
+  const ideia = PAGE_IDEIAS.find(i => i.id === ideiaId);
+  if (!ideia) return;
+  const tituloEl = document.getElementById('nr-titulo');
+  const formatoEl = document.getElementById('nr-formato');
+  const dataEl = document.getElementById('nr-data');
+  if (tituloEl && !tituloEl.value) tituloEl.value = ideia.titulo;
+  if (formatoEl) formatoEl.value = ideia.formato || 'reel';
+  if (dataEl && !dataEl.value && ideia.data_prevista) dataEl.value = ideia.data_prevista;
+}
+
+function openNovoRoteiro(preIdeiaId) {
   ['nr-titulo','nr-data','nr-script'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
   document.getElementById('nr-formato').value = 'reel';
+
+  // Popula dropdown de ideias aprovadas
+  const ideiaSelect = document.getElementById('nr-ideia');
+  if (ideiaSelect) {
+    const aprovadas = PAGE_IDEIAS.filter(i => i.aprovada);
+    ideiaSelect.innerHTML = '<option value="">— Sem ideia vinculada —</option>' +
+      aprovadas.map(i => `<option value="${i.id}">${i.titulo}</option>`).join('');
+    if (preIdeiaId) {
+      ideiaSelect.value = preIdeiaId;
+      _autoFillRoteiroFromIdeia(preIdeiaId);
+    }
+    // Auto-preenche campos ao escolher uma ideia
+    ideiaSelect.onchange = () => _autoFillRoteiroFromIdeia(ideiaSelect.value);
+  }
+
   openModal('modal-novo-roteiro');
 }
 
 async function salvarNovoRoteiro() {
   const titulo = document.getElementById('nr-titulo').value.trim();
   if (!titulo) { showToast('Digite o título do roteiro.', 'error'); return; }
+  const ideiaId = document.getElementById('nr-ideia')?.value || null;
   const btn = document.getElementById('btn-salvar-roteiro');
   btn.disabled = true; btn.textContent = 'Salvando…';
   try {
     const r = await dbCreateRoteiro({
       cliente_id:    PAGE_CLIENTE.id,
-      ideia_id:      null,
+      ideia_id:      ideiaId || null,
       titulo,
       formato:       document.getElementById('nr-formato').value,
       data_prevista: document.getElementById('nr-data').value || null,
