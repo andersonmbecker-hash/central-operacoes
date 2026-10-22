@@ -283,12 +283,12 @@ function renderMeta() {
       <div class="value">${c.media_views_inicial}</div>
       <div class="sub">Últimos 20 conteúdos (pré-plano)</div>
     </div>
-    ${c.conteudos_semana ? `
     <div class="meta-card">
       <div class="label">Plano de conteúdo</div>
-      <div class="value">${c.conteudos_semana}×</div>
+      <div class="value">${c.conteudos_semana || 4}×</div>
       <div class="sub">conteúdos por semana</div>
-    </div>` : ''}
+      ${IS_ADMIN ? `<button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="openEditPlano()">✏️ Editar</button>` : ''}
+    </div>
     <div class="meta-card">
       <div class="label">Responsáveis</div>
       <div class="value" style="font-size:13px">
@@ -905,6 +905,24 @@ async function salvarSeguidores() {
     PAGE_CLIENTE.seguidores_atualizado_em = hoje;
     closeModal('modal-edit-followers');
     showToast('Seguidores atualizados!', 'success');
+    renderMeta();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// ── Modal: Editar plano de conteúdo ──────────────────────────
+function openEditPlano() {
+  document.getElementById('edit-plano-valor').value = PAGE_CLIENTE.conteudos_semana || 4;
+  openModal('modal-edit-plano');
+}
+
+async function salvarPlano() {
+  const valor = parseInt(document.getElementById('edit-plano-valor').value);
+  if (!valor || valor < 1) { showToast('Informe um número válido.', 'error'); return; }
+  try {
+    await dbUpdateCliente(PAGE_CLIENTE.id, { conteudos_semana: valor });
+    PAGE_CLIENTE.conteudos_semana = valor;
+    closeModal('modal-edit-plano');
+    showToast('Plano atualizado!', 'success');
     renderMeta();
   } catch (err) { showToast(err.message, 'error'); }
 }
