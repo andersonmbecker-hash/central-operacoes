@@ -9,6 +9,7 @@ let PAGE_CONQUISTAS = [];
 let PAGE_IDEIAS  = [];
 let PAGE_ROTEIROS = [];
 let PAGE_EVENTOS = [];
+let PAGE_CAMPANHAS = [];
 let IS_ADMIN     = false;
 let ACTIVE_TAB   = 'ideias';
 
@@ -210,8 +211,9 @@ async function loadTudo() {
   PAGE_RESP    = await dbListResponsaveis(PAGE_CLIENTE.id);
   PAGE_CONQUISTAS = await dbListConquistas(PAGE_CLIENTE.id);
   PAGE_IDEIAS  = await dbListIdeias(PAGE_CLIENTE.id);
-  PAGE_ROTEIROS= await dbListRoteiros(PAGE_CLIENTE.id);
-  PAGE_EVENTOS = await dbListEventos(PAGE_CLIENTE.id);
+  PAGE_ROTEIROS  = await dbListRoteiros(PAGE_CLIENTE.id);
+  PAGE_EVENTOS   = await dbListEventos(PAGE_CLIENTE.id);
+  PAGE_CAMPANHAS = await dbListCampanhas(PAGE_CLIENTE.id).catch(() => []);
 
   renderHeader();
   renderMeta();
@@ -380,6 +382,7 @@ function switchTab(tabId) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${tabId}`));
   if (tabId === 'ideias')     renderIdeias();
   if (tabId === 'aprovadas')  renderAprovadas();
+  if (tabId === 'campanhas')  renderCampanhas();
   if (tabId === 'calendario') renderCalendario();
   if (tabId === 'roteiros')   renderRoteiros();
 }
@@ -405,6 +408,7 @@ function renderIdeias() {
 }
 
 function ideiaCardHTML(i, isAprovada) {
+  const campanha = i.campanha_id ? PAGE_CAMPANHAS.find(c => c.id === i.campanha_id) : null;
   return `
     <div class="ideia-card" onclick="openIdeia('${i.id}')">
       <div class="card-top">
@@ -416,6 +420,7 @@ function ideiaCardHTML(i, isAprovada) {
       </div>
       <div class="card-desc">${i.descricao || i.conceito || ''}</div>
       <div class="card-meta">
+        ${campanha ? `<span class="badge" style="background:var(--accent-dim,rgba(99,102,241,.15));color:var(--accent)">🎯 ${campanha.nome}</span>` : ''}
         ${i.data_prevista ? `<span class="data-tag">📅 ${fmtDate(i.data_prevista)}</span>` : ''}
         ${isAprovada ? `<span class="badge badge-green">✓ Aprovada</span>` : ''}
       </div>
@@ -446,6 +451,196 @@ function renderAprovadas() {
 }
 
 // ── Tab: Roteiros ─────────────────────────────────────────────
+// ── Tab: Campanhas ────────────────────────────────────────────
+function statusCampanha(s) {
+  const map = {
+    planejamento: { label: 'Planejamento', cls: 'badge-carrossel' },
+    aprovada:     { label: 'Aprovada ✓',   cls: 'badge-green' },
+    encerrada:    { label: 'Encerrada',     cls: '' },
+  };
+  const m = map[s] || map.planejamento;
+  return `<span class="badge ${m.cls}">${m.label}</span>`;
+}
+
+function fmtPeriodo(inicio, fim) {
+  const fmt = d => d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : null;
+  const i = fmt(inicio), f = fmt(fim);
+  if (i && f) return `${i} → ${f}`;
+  if (i) return `A partir de ${i}`;
+  if (f) return `Até ${f}`;
+  return '';
+}
+
+function renderCampanhas() {
+  const container = document.getElementById('campanhas-list');
+  let html = '';
+  if (IS_ADMIN) {
+    html += `<div style="margin-bottom:16px">
+      <button class="btn btn-primary" onclick="openNovaCampanha()">＋ Nova campanha</button>
+    </div>`;
+  }
+  if (!PAGE_CAMPANHAS.length) {
+    html += `<div class="empty-state"><div class="icon">🎯</div><h3>Nenhuma campanha ainda</h3><p>Crie campanhas para organizar conjuntos de conteúdo com um objetivo em comum.</p></div>`;
+    container.innerHTML = html;
+    return;
+  }
+  html += PAGE_CAMPANHAS.map(c => {
+    const ideias = PAGE_IDEIAS.filter(i => i.campanha_id === c.id);
+    const periodo = fmtPeriodo(c.data_inicio, c.data_fim);
+    return `
+      <div class="roteiro-item" onclick="openCampanha('${c.id}')" style="cursor:pointer">
+        <div class="top">
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <div class="title">${c.nome}</div>
+              ${statusCampanha(c.status)}
+            </div>
+            ${periodo ? `<div style="font-size:12px;color:var(--fg3);margin-top:3px">📅 ${periodo}</div>` : ''}
+            ${c.objetivo ? `<div style="font-size:12px;color:var(--fg2);margin-top:4px;line-height:1.4">${c.objetivo}</div>` : ''}
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:13px;font-weight:600">${ideias.length}</div>
+            <div style="font-size:11px;color:var(--fg3)">ideia${ideias.length !== 1 ? 's' : ''}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  container.innerHTML = html;
+}
+
+let _focusCampanha = null;
+
+function openCampanha(campanhaId) {
+  _focusCampanha = PAGE_CAMPANHAS.find(c => c.id === campanhaId);
+  if (!_focusCampanha) return;
+  const c = _focusCampanha;
+
+  document.getElementById('modal-campanha-nome').textContent = c.nome;
+  document.getElementById('modal-campanha-periodo').textContent = fmtPeriodo(c.data_inicio, c.data_fim);
+  document.getElementById('modal-campanha-objetivo').textContent = c.objetivo || '—';
+
+  const obsWrap = document.getElementById('modal-campanha-obs-wrap');
+  const obsEl = document.getElementById('modal-campanha-obs');
+  if (c.obs) { obsEl.textContent = c.obs; obsWrap.style.display = ''; }
+  else { obsWrap.style.display = 'none'; }
+
+  // Status row
+  document.getElementById('modal-campanha-status-row').innerHTML = statusCampanha(c.status);
+
+  // Ideias vinculadas
+  const ideias = PAGE_IDEIAS.filter(i => i.campanha_id === c.id);
+  const ideiasEl = document.getElementById('modal-campanha-ideias');
+  if (!ideias.length) {
+    ideiasEl.innerHTML = `<p style="font-size:12px;color:var(--fg3)">
+      ${c.status === 'aprovada'
+        ? 'Nenhuma ideia ainda. Crie ideias e vincule a esta campanha.'
+        : 'A campanha precisa ser aprovada antes de adicionar ideias.'}
+    </p>`;
+  } else {
+    ideiasEl.innerHTML = ideias.map(i => `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg2);border-radius:var(--radius-sm);cursor:pointer"
+           onclick="closeModal('modal-campanha');openIdeia('${i.id}')">
+        <div style="flex:1;font-size:13px">${i.titulo}</div>
+        ${badgeFormato(i.formato)}
+        ${i.aprovada ? `<span class="badge badge-green" style="font-size:10px">✓</span>` : ''}
+      </div>
+    `).join('');
+  }
+
+  // Footer
+  const footer = document.getElementById('modal-campanha-footer');
+  const btnsAdmin = IS_ADMIN ? `
+    ${c.status !== 'encerrada' ? `<button class="btn btn-secondary" onclick="encerrarCampanha('${c.id}')">Encerrar</button>` : ''}
+    ${IS_ADMIN ? `<button class="btn btn-danger btn-sm" onclick="deletarCampanha('${c.id}')">🗑</button>` : ''}
+  ` : '';
+
+  if (c.status === 'planejamento') {
+    footer.innerHTML = `
+      ${btnsAdmin}
+      <button class="btn btn-secondary" onclick="closeModal('modal-campanha')">Fechar</button>
+      <button class="btn btn-green" onclick="aprovarCampanha('${c.id}')">✓ Aprovar campanha</button>
+    `;
+  } else if (c.status === 'aprovada') {
+    footer.innerHTML = `
+      ${btnsAdmin}
+      <button class="btn btn-secondary" onclick="closeModal('modal-campanha')">Fechar</button>
+      ${IS_ADMIN ? `<button class="btn btn-primary" onclick="closeModal('modal-campanha');openNovaIdeia('${c.id}')">＋ Adicionar ideia</button>` : ''}
+    `;
+  } else {
+    footer.innerHTML = `
+      ${btnsAdmin}
+      <button class="btn btn-secondary" onclick="closeModal('modal-campanha')">Fechar</button>
+    `;
+  }
+
+  openModal('modal-campanha');
+}
+
+async function aprovarCampanha(id) {
+  try {
+    await dbUpdateCampanha(id, { status: 'aprovada' });
+    const c = PAGE_CAMPANHAS.find(x => x.id === id);
+    if (c) c.status = 'aprovada';
+    closeModal('modal-campanha');
+    showToast('Campanha aprovada! ✓', 'success');
+    renderCampanhas();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function encerrarCampanha(id) {
+  if (!confirm('Encerrar esta campanha?')) return;
+  try {
+    await dbUpdateCampanha(id, { status: 'encerrada' });
+    const c = PAGE_CAMPANHAS.find(x => x.id === id);
+    if (c) c.status = 'encerrada';
+    closeModal('modal-campanha');
+    showToast('Campanha encerrada.', 'success');
+    renderCampanhas();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function deletarCampanha(id) {
+  if (!confirm('Excluir esta campanha? As ideias vinculadas não serão excluídas.')) return;
+  try {
+    await dbDeleteCampanha(id);
+    PAGE_CAMPANHAS = PAGE_CAMPANHAS.filter(c => c.id !== id);
+    closeModal('modal-campanha');
+    showToast('Campanha excluída.', 'success');
+    renderCampanhas();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+function openNovaCampanha() {
+  ['nc2-nome', 'nc2-objetivo', 'nc2-inicio', 'nc2-fim', 'nc2-obs'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  openModal('modal-nova-campanha');
+}
+
+async function salvarNovaCampanha() {
+  const nome = document.getElementById('nc2-nome').value.trim();
+  if (!nome) { showToast('Informe o nome da campanha.', 'error'); return; }
+  const btn = document.getElementById('btn-salvar-campanha');
+  btn.disabled = true;
+  try {
+    const nova = await dbCreateCampanha({
+      cliente_id: PAGE_CLIENTE.id,
+      nome,
+      objetivo:    document.getElementById('nc2-objetivo').value.trim() || null,
+      data_inicio: document.getElementById('nc2-inicio').value  || null,
+      data_fim:    document.getElementById('nc2-fim').value     || null,
+      obs:         document.getElementById('nc2-obs').value.trim() || null,
+    });
+    PAGE_CAMPANHAS.unshift(nova);
+    closeModal('modal-nova-campanha');
+    showToast('Campanha criada!', 'success');
+    renderCampanhas();
+  } catch (err) { showToast(err.message, 'error'); }
+  finally { btn.disabled = false; }
+}
+
 function renderRoteiros() {
   const container = document.getElementById('roteiros-list');
   let html = '';
@@ -822,12 +1017,22 @@ async function adicionarRoteiro(ideiaId) {
 }
 
 // ── Modal: Nova ideia ─────────────────────────────────────────
-function openNovaIdeia() {
+function openNovaIdeia(campanhaIdPresel) {
   ['ni-titulo','ni-desc','ni-conceito','ni-links','ni-obs','ni-data'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
   document.getElementById('ni-formato').value = 'reel';
+
+  // Popula select de campanhas com apenas as aprovadas
+  const campSelect = document.getElementById('ni-campanha');
+  if (campSelect) {
+    const aprovadas = PAGE_CAMPANHAS.filter(c => c.status === 'aprovada');
+    campSelect.innerHTML = '<option value="">— Sem campanha —</option>' +
+      aprovadas.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+    campSelect.value = campanhaIdPresel || '';
+  }
+
   openModal('modal-nova-ideia');
 }
 
@@ -838,6 +1043,7 @@ async function salvarNovaIdeia() {
   const btn = document.getElementById('btn-salvar-ideia');
   btn.disabled = true; btn.textContent = 'Salvando…';
   try {
+    const campEl = document.getElementById('ni-campanha');
     const ideia = await dbCreateIdeia({
       cliente_id:    PAGE_CLIENTE.id,
       titulo,
@@ -848,6 +1054,7 @@ async function salvarNovaIdeia() {
       links:         document.getElementById('ni-links').value,
       obs:           document.getElementById('ni-obs').value,
       aprovada:      false,
+      campanha_id:   campEl?.value || null,
     });
     PAGE_IDEIAS.unshift(ideia);
     closeModal('modal-nova-ideia');

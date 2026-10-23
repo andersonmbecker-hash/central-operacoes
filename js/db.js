@@ -218,6 +218,43 @@ async function dbDeleteRoteiro(id) {
   if (error) throw error;
 }
 
+// ── Campanhas ─────────────────────────────────────────────────
+async function dbListCampanhas(clienteId) {
+  const { data, error } = await db
+    .from('campanhas')
+    .select('*')
+    .eq('cliente_id', clienteId)
+    .order('criado_em', { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
+async function dbCreateCampanha(payload) {
+  const { data, error } = await db
+    .from('campanhas')
+    .insert(payload)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+async function dbUpdateCampanha(id, payload) {
+  const { error } = await db
+    .from('campanhas')
+    .update(payload)
+    .eq('id', id);
+  if (error) throw error;
+}
+
+async function dbDeleteCampanha(id) {
+  const { error } = await db
+    .from('campanhas')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+}
+
 // ── Comentários de Ideias ─────────────────────────────────────
 async function dbListComentariosIdeia(ideiaId) {
   const { data, error } = await db
