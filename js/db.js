@@ -218,6 +218,36 @@ async function dbDeleteRoteiro(id) {
   if (error) throw error;
 }
 
+// ── Comentários de Ideias ─────────────────────────────────────
+async function dbListComentariosIdeia(ideiaId) {
+  const { data, error } = await db
+    .from('ideia_comentarios')
+    .select('*')
+    .eq('ideia_id', ideiaId)
+    .order('criado_em', { ascending: true });
+  if (error) throw error;
+  return data;
+}
+
+async function dbCreateComentario({ ideia_id, texto, nome }) {
+  const user = await dbGetUser();
+  const { data, error } = await db
+    .from('ideia_comentarios')
+    .insert({ ideia_id, texto, nome, user_id: user.id })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+async function dbDeleteComentario(id) {
+  const { error } = await db
+    .from('ideia_comentarios')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+}
+
 // ── Eventos do Calendário ─────────────────────────────────────
 async function dbListEventos(clienteId) {
   const { data, error } = await db

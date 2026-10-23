@@ -472,7 +472,10 @@ function roteiroHTML(r) {
           <div style="margin-top:4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             ${badgeFormato(r.formato)}
             ${r.data_prevista ? `<span class="data-tag">📅 ${fmtDate(r.data_prevista)}</span>` : ''}
-            ${ideiaVinculada ? `<span class="data-tag" style="color:var(--blue);border-color:var(--blue)">💡 ${ideiaVinculada.titulo}</span>` : ''}
+            ${ideiaVinculada
+              ? `<span class="data-tag" style="color:var(--blue);border-color:var(--blue)">💡 ${ideiaVinculada.titulo}</span>`
+              : ''}
+            ${IS_ADMIN ? `<button class="btn btn-ghost btn-sm" style="font-size:11px;padding:2px 6px" onclick="event.stopPropagation();openEditRoteiroIdeia('${r.id}')" title="Alterar ideia vinculada">🔗 ${ideiaVinculada ? 'Alterar' : 'Vincular ideia'}</button>` : ''}
           </div>
         </div>
         ${IS_ADMIN ? `<button class="btn btn-ghost btn-sm" onclick="deletarRoteiro('${r.id}')" title="Excluir">🗑</button>` : ''}
@@ -644,6 +647,90 @@ function openIdeia(ideiaId) {
   }
 
   openModal('modal-ideia');
+  loadComentariosIdeia(ideiaId);
+
+  // Limpa input de comentário
+  const inputComentario = document.getElementById('modal-ideia-comentario-input');
+  if (inputComentario) inputComentario.value = '';
+}
+
+// ── Comentários de Ideias ─────────────────────────────────────
+let _comentariosIdeia = [];
+
+function _getNomeUsuario() {
+  // Tenta encontrar o responsável vinculado ao usuário logado
+  const user = typeof currentUser !== 'undefined' ? currentUser : null;
+  if (!user) return 'Usuário';
+  const resp = (PAGE_RESP || []).find(r =>
+    r.user_id === user.id || r.email === user.email
+  );
+  return resp?.nome || user.email?.split('@')[0] || 'Usuário';
+}
+
+async function loadComentariosIdeia(ideiaId) {
+  const lista = document.getElementById('modal-ideia-comentarios-lista');
+  if (!lista) return;
+  lista.innerHTML = '<div class="loading-spinner" style="padding:8px 0"><div class="spinner"></div></div>';
+  try {
+    _comentariosIdeia = await dbListComentariosIdeia(ideiaId);
+    renderComentariosIdeia();
+  } catch (err) {
+    lista.innerHTML = `<p style="font-size:12px;color:var(--fg3)">${err.message}</p>`;
+  }
+}
+
+function renderComentariosIdeia() {
+  const lista = document.getElementById('modal-ideia-comentarios-lista');
+  if (!lista) return;
+  if (!_comentariosIdeia.length) {
+    lista.innerHTML = '<p style="font-size:12px;color:var(--fg3)">Nenhum comentário ainda. Seja o primeiro!</p>';
+    return;
+  }
+  const user = typeof currentUser !== 'undefined' ? currentUser : null;
+  lista.innerHTML = _comentariosIdeia.map(c => `
+    <div style="background:var(--bg2);border-radius:var(--radius-sm);padding:10px 12px;position:relative">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:12px;font-weight:700;color:var(--fg2)">${c.nome}</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:11px;color:var(--fg3)">${fmtDatetime(c.criado_em)}</span>
+          ${user && c.user_id === user.id ? `<button onclick="deletarComentario('${c.id}')" style="background:none;border:none;cursor:pointer;color:var(--fg3);font-size:13px;line-height:1;padding:0" title="Excluir">×</button>` : ''}
+        </div>
+      </div>
+      <p style="font-size:13px;color:var(--fg);margin:0;white-space:pre-wrap">${c.texto}</p>
+    </div>
+  `).join('');
+}
+
+async function comentarIdeia() {
+  const input = document.getElementById('modal-ideia-comentario-input');
+  const texto = input?.value?.trim();
+  if (!texto) { showToast('Escreva um comentário antes de enviar.', 'error'); return; }
+  if (!_focusIdeia) return;
+  const nome = _getNomeUsuario();
+  try {
+    const novo = await dbCreateComentario({ ideia_id: _focusIdeia.id, texto, nome });
+    _comentariosIdeia.push(novo);
+    renderComentariosIdeia();
+    if (input) input.value = '';
+    // Scroll para o fim
+    const lista = document.getElementById('modal-ideia-comentarios-lista');
+    if (lista) lista.lastElementChild?.scrollIntoView({ behavior: 'smooth' });
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function deletarComentario(id) {
+  try {
+    await dbDeleteComentario(id);
+    _comentariosIdeia = _comentariosIdeia.filter(c => c.id !== id);
+    renderComentariosIdeia();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+function fmtDatetime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) +
+    ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
 let _agendarIdeiaId = null;
@@ -906,6 +993,32 @@ async function salvarSeguidores() {
     closeModal('modal-edit-followers');
     showToast('Seguidores atualizados!', 'success');
     renderMeta();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// ── Modal: Editar ideia vinculada ao roteiro ──────────────────
+let _editRoteiroId = null;
+
+function openEditRoteiroIdeia(roteiroId) {
+  _editRoteiroId = roteiroId;
+  const roteiro = PAGE_ROTEIROS.find(r => r.id === roteiroId);
+  const select = document.getElementById('edit-roteiro-ideia-select');
+  // Mostra todas as ideias (aprovadas ou não) para flexibilidade
+  select.innerHTML = '<option value="">— Sem ideia vinculada —</option>' +
+    PAGE_IDEIAS.map(i => `<option value="${i.id}">${i.titulo}${i.aprovada ? ' ✓' : ''}</option>`).join('');
+  select.value = roteiro?.ideia_id || '';
+  openModal('modal-edit-roteiro-ideia');
+}
+
+async function salvarRoteiroIdeia() {
+  const ideiaId = document.getElementById('edit-roteiro-ideia-select').value || null;
+  try {
+    await dbUpdateRoteiro(_editRoteiroId, { ideia_id: ideiaId });
+    const r = PAGE_ROTEIROS.find(r => r.id === _editRoteiroId);
+    if (r) r.ideia_id = ideiaId;
+    closeModal('modal-edit-roteiro-ideia');
+    renderRoteiros();
+    showToast('Ideia vinculada atualizada!', 'success');
   } catch (err) { showToast(err.message, 'error'); }
 }
 
