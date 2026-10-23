@@ -90,6 +90,7 @@
     <div class="tabs-bar">
       <button class="tab-btn active" data-tab="ideias"     onclick="switchTab('ideias')">💡 Ideias</button>
       <button class="tab-btn"        data-tab="aprovadas"  onclick="switchTab('aprovadas')">✅ Aprovadas</button>
+      <button class="tab-btn"        data-tab="campanhas"  onclick="switchTab('campanhas')">🎯 Campanhas</button>
       <button class="tab-btn"        data-tab="roteiros"   onclick="switchTab('roteiros')">📝 Roteiros</button>
       <button class="tab-btn"        data-tab="calendario" onclick="switchTab('calendario')">📅 Calendário</button>
     </div>
@@ -97,6 +98,7 @@
     <!-- Painéis -->
     <div id="tab-ideias"    class="tab-panel active"><div id="ideias-list"></div></div>
     <div id="tab-aprovadas" class="tab-panel"><div id="aprovadas-list"></div></div>
+    <div id="tab-campanhas" class="tab-panel"><div id="campanhas-list"></div></div>
     <div id="tab-roteiros"  class="tab-panel"><div id="roteiros-list"></div></div>
     <div id="tab-calendario" class="tab-panel"><div id="calendario-container"></div></div>
 
@@ -201,6 +203,12 @@
       <div class="form-group">
         <label>Observações</label>
         <input type="text" id="ni-obs" placeholder="Observações adicionais">
+      </div>
+      <div class="form-group">
+        <label>Campanha (opcional)</label>
+        <select id="ni-campanha">
+          <option value="">— Sem campanha —</option>
+        </select>
       </div>
     </div>
     <div class="modal-footer">
@@ -415,6 +423,77 @@
       <button class="btn btn-secondary" onclick="closeModal('modal-edit-followers')">Cancelar</button>
       <button class="btn btn-primary" onclick="salvarSeguidores()">Salvar</button>
     </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL — Nova Campanha
+     ============================================================ -->
+<div id="modal-nova-campanha" class="modal-overlay" style="display:none">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-header">
+      <h3>🎯 Nova Campanha</h3>
+      <button class="modal-close" onclick="closeModal('modal-nova-campanha')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Nome da campanha *</label>
+        <input type="text" id="nc2-nome" placeholder="Ex: Black Friday 2026">
+      </div>
+      <div class="form-group">
+        <label>Objetivo</label>
+        <textarea id="nc2-objetivo" placeholder="O que a campanha pretende alcançar?" rows="2"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Início</label>
+          <input type="date" id="nc2-inicio">
+        </div>
+        <div class="form-group">
+          <label>Fim</label>
+          <input type="date" id="nc2-fim">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Observações</label>
+        <textarea id="nc2-obs" rows="2" placeholder="Briefing, referências, restrições…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-nova-campanha')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-salvar-campanha" onclick="salvarNovaCampanha()">Criar campanha</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL — Detalhe da Campanha
+     ============================================================ -->
+<div id="modal-campanha" class="modal-overlay" style="display:none">
+  <div class="modal-box" style="max-width:580px">
+    <div class="modal-header">
+      <div>
+        <h3 id="modal-campanha-nome"></h3>
+        <div id="modal-campanha-periodo" style="margin-top:3px;font-size:12px;color:var(--fg3)"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-campanha')">×</button>
+    </div>
+    <div class="modal-body" style="display:grid;gap:14px">
+      <div id="modal-campanha-status-row"></div>
+      <div>
+        <p style="font-size:11px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Objetivo</p>
+        <p id="modal-campanha-objetivo" style="font-size:13px;color:var(--fg)"></p>
+      </div>
+      <div id="modal-campanha-obs-wrap">
+        <p style="font-size:11px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Observações</p>
+        <p id="modal-campanha-obs" style="font-size:13px;color:var(--fg)"></p>
+      </div>
+      <div>
+        <p style="font-size:11px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">💡 Ideias da campanha</p>
+        <div id="modal-campanha-ideias" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+    </div>
+    <div class="modal-footer" id="modal-campanha-footer"></div>
   </div>
 </div>
 
